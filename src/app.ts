@@ -1,6 +1,8 @@
 import express, { Request, Response } from "express";
 import puppeteer from "puppeteer";
 import client from "./database.js";
+import { companyPosts, Company } from "./types.js";
+import { Client } from "pg";
 import "dotenv/config";
 const app = express();
 const PORT = 8080;
@@ -8,11 +10,33 @@ const PORT = 8080;
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-type Company = {
-  Name: string;
-  Url: string;
-  ClassOfJobTitle: string;
-  Postings: Array<string>;
+// Connect to the database when the server starts
+client
+  .connect()
+  .then(() => {
+    console.log("Connected to database");
+  })
+  .catch((err) => {
+    console.error("Error connecting to database:", err);
+  });
+
+const savePostings = async (client: Client, newPosts: companyPosts) => {
+  return await Promise.all(
+    Object.entries(newPosts).map(async ([key, value]) => {
+      if (value.length > 0) {
+        try {
+          const response = await client.query(
+            'UPDATE companies SET "Postings" = "Postings" || $1 WHERE "Name" = $2',
+            [value, key]
+          );
+          return response;
+        } catch (e) {
+          console.log(e);
+        }
+        return;
+      }
+    })
+  );
 };
 
 const scrap = async (
@@ -36,13 +60,10 @@ const scrap = async (
 app.get("/companies", async (req, res) => {
   let companies = undefined;
   try {
-    await client.connect();
     const res = await client.query("SELECT * FROM companies");
     companies = res.rows;
   } catch (e) {
     console.log(e);
-  } finally {
-    await client.end();
   }
   if (companies) {
     res.json(companies);
@@ -53,22 +74,21 @@ app.get("/companies", async (req, res) => {
 
 app.get("/new-postings", async (req: Request, res: Response) => {
   try {
-    await client.connect();
     const companies = await client.query("SELECT * FROM companies");
-    const jobs = await Promise.all(
-      companies.rows.map((company: Company) =>
-        scrap(company.Url, company.ClassOfJobTitle)
-      )
+    const jobsPosted: companyPosts = {};
+    const newPostings: companyPosts = {};
+    await Promise.all(
+      companies.rows.map(async (company: Company) => {
+        const posts = await scrap(company.Url, company.ClassOfJobTitle);
+        const oldPosts = company.Postings;
+        const newPosts = posts.filter((post) => !oldPosts.includes(post));
+        newPostings[company.Name] = newPosts;
+        jobsPosted[company.Name] = posts;
+        return jobsPosted;
+      })
     );
-    const companyNames = companies.rows
-      .map((company: Company) => company.Name)
-      .flat();
-    const jobsInDB = companies.rows.map((company: Company) => company.Postings);
-    const newJobs = jobs.map((job, index) =>
-      job.filter((j) => !jobsInDB[index].includes(j))
-    );
-    await client.end();
-    res.send(newJobs);
+    await savePostings(client, newPostings);
+    res.json(newPostings);
   } catch (e) {
     console.log(e);
   }
