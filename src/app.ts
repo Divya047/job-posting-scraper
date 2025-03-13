@@ -1,11 +1,21 @@
+// Temporary module declaration
 import express, { Request, Response } from "express";
 import puppeteer from "puppeteer";
 import client from "./database.js";
 import { companyPosts, Company } from "./types.js";
 import { Client } from "pg";
 import "dotenv/config";
+// Temporary require declaration
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare const require: any;
+const Push = require("pushover-notifications");
 const app = express();
 const PORT = 8080;
+
+const push = new Push({
+  user: process.env.PUSHOVER_USER,
+  token: process.env.PUSHOVER_TOKEN,
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -88,6 +98,19 @@ app.get("/new-postings", async (req: Request, res: Response) => {
       })
     );
     await savePostings(client, newPostings);
+    const message = Object.entries(newPostings)
+      .filter(([, value]) => value.length > 0)
+      .map(([company, jobs]) => `${company}:\n${jobs.join("\n")}`)
+      .join("\n\n");
+    if (message) {
+      const msg = {
+        message,
+        title: "New Job Postings Found!",
+        priority: 1,
+        sound: "magic",
+      };
+      push.send(msg);
+    }
     res.json(newPostings);
   } catch (e) {
     console.log(e);
