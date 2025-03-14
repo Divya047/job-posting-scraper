@@ -1,21 +1,10 @@
-// Temporary module declaration
-import express, { Request, Response } from "express";
-import puppeteer from "puppeteer";
+import express from "express";
+import { companyRouter } from "./router/company.js";
 import client from "./database.js";
-import { companyPosts, Company } from "./types.js";
-import { Client } from "pg";
+import { postingsRouter } from "./router/postings.js";
 import "dotenv/config";
-// Temporary require declaration
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare const require: any;
-const Push = require("pushover-notifications");
 const app = express();
 const PORT = 8080;
-
-const push = new Push({
-  user: process.env.PUSHOVER_USER,
-  token: process.env.PUSHOVER_TOKEN,
-});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -30,92 +19,9 @@ client
     console.error("Error connecting to database:", err);
   });
 
-const savePostings = async (client: Client, newPosts: companyPosts) => {
-  return await Promise.all(
-    Object.entries(newPosts).map(async ([key, value]) => {
-      if (value.length > 0) {
-        try {
-          const response = await client.query(
-            'UPDATE companies SET "Postings" = "Postings" || $1 WHERE "Name" = $2',
-            [value, key]
-          );
-          return response;
-        } catch (e) {
-          console.log(e);
-        }
-        return;
-      }
-    })
-  );
-};
+app.use("/company", companyRouter);
 
-const scrap = async (
-  url: string,
-  titleClass: string
-): Promise<Array<string>> => {
-  const browser = await puppeteer.launch();
-  const page = await browser.newPage();
-  await page.goto(url);
-  await page.waitForSelector(titleClass);
-  const jobs = await page.evaluate((titleClass: string) => {
-    const jobList: HTMLElement[] = Array.from(
-      document.querySelectorAll(titleClass)
-    );
-    return jobList.map((job: HTMLElement) => job.innerText);
-  }, titleClass);
-  await browser.close();
-  return jobs;
-};
-
-app.get("/companies", async (req, res) => {
-  let companies = undefined;
-  try {
-    const res = await client.query("SELECT * FROM companies");
-    companies = res.rows;
-  } catch (e) {
-    console.log(e);
-  }
-  if (companies) {
-    res.json(companies);
-  } else {
-    res.json([]);
-  }
-});
-
-app.get("/new-postings", async (req: Request, res: Response) => {
-  try {
-    const companies = await client.query("SELECT * FROM companies");
-    const jobsPosted: companyPosts = {};
-    const newPostings: companyPosts = {};
-    await Promise.all(
-      companies.rows.map(async (company: Company) => {
-        const posts = await scrap(company.Url, company.ClassOfJobTitle);
-        const oldPosts = company.Postings;
-        const newPosts = posts.filter((post) => !oldPosts.includes(post));
-        newPostings[company.Name] = newPosts;
-        jobsPosted[company.Name] = posts;
-        return jobsPosted;
-      })
-    );
-    await savePostings(client, newPostings);
-    const message = Object.entries(newPostings)
-      .filter(([, value]) => value.length > 0)
-      .map(([company, jobs]) => `${company}:\n${jobs.join("\n")}`)
-      .join("\n\n");
-    if (message) {
-      const msg = {
-        message,
-        title: "New Job Postings Found!",
-        priority: 1,
-        sound: "magic",
-      };
-      push.send(msg);
-    }
-    res.json(newPostings);
-  } catch (e) {
-    console.log(e);
-  }
-});
+app.use("/new-postings", postingsRouter);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
