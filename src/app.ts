@@ -1,7 +1,7 @@
 import express from "express";
 import { companyRouter } from "./router/company.js";
-import client from "./database.js";
 import { postingsRouter } from "./router/postings.js";
+import client from "./database.js";
 import "dotenv/config";
 const app = express();
 const PORT = 8080;
