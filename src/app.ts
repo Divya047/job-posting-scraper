@@ -21,7 +21,7 @@ client
 
 app.use("/company", companyRouter);
 
-app.use("/new-postings", postingsRouter);
+app.use("/postings", postingsRouter);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

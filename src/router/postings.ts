@@ -13,7 +13,7 @@ const push = new Push({
   token: process.env.PUSHOVER_TOKEN,
 });
 
-postingsRouter.get("/new-postings", async (req: Request, res: Response) => {
+postingsRouter.get("/", async (req: Request, res: Response) => {
   try {
     const companies = await client.query("SELECT * FROM companies");
     const jobsPosted: companyPosts = {};
@@ -43,6 +43,15 @@ postingsRouter.get("/new-postings", async (req: Request, res: Response) => {
       push.send(msg);
     }
     res.json(newPostings);
+  } catch (e) {
+    console.log(e);
+  }
+});
+
+postingsRouter.delete("/", async (req: Request, res: Response) => {
+  try {
+    await client.query("UPDATE companies SET Postings = ARRAY[]::text[]");
+    res.status(200);
   } catch (e) {
     console.log(e);
   }
