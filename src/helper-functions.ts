@@ -25,7 +25,12 @@ const scrap = async (
   url: string,
   titleClass: string
 ): Promise<Array<string>> => {
-  const browser = await puppeteer.launch();
+  const browser = await puppeteer.launch({
+    headless: true,
+    defaultViewport: null,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+    args: ["--no-sandbox"],
+  });
   const page = await browser.newPage();
   await page.goto(url);
   await page.waitForSelector(titleClass);
