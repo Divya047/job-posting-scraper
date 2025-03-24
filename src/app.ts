@@ -19,6 +19,10 @@ client
     console.error("Error connecting to database:", err);
   });
 
+app.get("/health-check", (req, res) => {
+  res.send("Server is running");
+});
+
 app.use("/company", companyRouter);
 
 app.use("/postings", postingsRouter);
