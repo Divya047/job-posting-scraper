@@ -55,7 +55,6 @@ postingsRouter.get("/", verifyToken, async (req: Request, res: Response) => {
       const msg = {
         message,
         title: "New Job Postings Found!",
-        priority: 1,
         sound: "magic",
       };
       try {
