@@ -73,7 +73,7 @@ postingsRouter.get("/", verifyToken, async (req: Request, res: Response) => {
 
 postingsRouter.delete("/", verifyToken, async (req: Request, res: Response) => {
   try {
-    await client.query("UPDATE companies SET Postings = ARRAY[]::text[]");
+    await client.query('UPDATE companies SET "Postings" = ARRAY[]::text[]');
     res.status(200).json({ message: "Successfully cleared all postings" });
   } catch (error) {
     console.error("Error clearing postings:", error);
