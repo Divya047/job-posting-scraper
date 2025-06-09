@@ -31,16 +31,23 @@ const scrap = async (
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     args: ["--no-sandbox"],
   });
+  let jobs: Array<string> = [];
+  try{
   const page = await browser.newPage();
   await page.goto(url);
   await page.waitForSelector(titleClass);
-  const jobs = await page.evaluate((titleClass: string) => {
+  jobs = await page.evaluate((titleClass: string) => {
     const jobList: HTMLElement[] = Array.from(
       document.querySelectorAll(titleClass)
     );
     return jobList.map((job: HTMLElement) => job.innerText);
   }, titleClass);
+  }catch (error) {
+    console.error("Error scraping:", error);
+  }
+  finally {
   await browser.close();
+  }
   return jobs;
 };
 
