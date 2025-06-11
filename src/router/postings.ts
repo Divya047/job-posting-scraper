@@ -45,10 +45,13 @@ postingsRouter.get("/", verifyToken, async (req: Request, res: Response) => {
       console.error("Error saving postings to database:", error);
       res.status(500).json({ error: "Failed to save postings to database" });
     }
-
+    const companyUrls: Record<string, string> = companies.rows.reduce((acc, company: Company) => {
+      acc[company.Name] = company.Url;
+      return acc;
+    }, {} as Record<string, string>);
     const message = Object.entries(newPostings)
       .filter(([, value]) => value.length > 0)
-      .map(([company, jobs]) => `${company}:\n${jobs.join("\n")}`)
+      .map(([company, jobs]) => `${company}:\n(${companyUrls[company]})\n${jobs.join("\n")}`)
       .join("\n\n");
 
     if (message) {
