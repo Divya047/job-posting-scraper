@@ -2,5 +2,5 @@
 /.vscode/*
 .env
 run-script.sh
-data.txt
+data.json
 .DS_Store
