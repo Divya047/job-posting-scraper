@@ -24,7 +24,10 @@ postingsRouter.get("/", verifyToken, async (req: Request, res: Response) => {
         try {
           const posts = await scrap(company.Url, company.ClassOfJobTitle);
           const oldPosts = company.Postings;
-          const newPosts = posts.filter((post) => !oldPosts.includes(post) && post.trim() !== "" && post !== "" );
+          const newPosts = posts.filter(
+            (post) =>
+              !oldPosts.includes(post) && post.trim() !== "" && post !== ""
+          );
           newPostings[company.Name] = [...new Set(newPosts)]; // Remove duplicates
           jobsPosted[company.Name] = posts;
         } catch (error) {
@@ -45,14 +48,24 @@ postingsRouter.get("/", verifyToken, async (req: Request, res: Response) => {
       console.error("Error saving postings to database:", error);
       res.status(500).json({ error: "Failed to save postings to database" });
     }
-    const companyUrls: Record<string, string> = companies.rows.reduce((acc, company: Company) => {
-      acc[company.Name] = company.Url;
-      return acc;
-    }, {} as Record<string, string>);
+    const companyUrls: Record<string, string> = companies.rows.reduce(
+      (acc, company: Company) => {
+        acc[company.Name] = company.Url;
+        return acc;
+      },
+      {} as Record<string, string>
+    );
     const message = Object.entries(newPostings)
       .filter(([, value]) => value.length > 0)
-      .map(([company, jobs]) => `${company}:\n(${companyUrls[company]})\n${jobs.join("\n")}`)
+      .map(
+        ([company, jobs]) =>
+          `${company}:\n(${companyUrls[company]})\n${jobs.join("\n")}`
+      )
       .join("\n\n");
+
+    Object.entries(newPostings).forEach(([company, jobs]) => {
+      newPostings[company] = [...jobs, companyUrls[company]];
+    });
 
     if (message) {
       const msg = {
@@ -84,32 +97,37 @@ postingsRouter.delete("/", verifyToken, async (req: Request, res: Response) => {
   }
 });
 
-postingsRouter.get("/test/:company", verifyToken, async (req: Request, res: Response) => {
-  const companyName = req.params.company;
-  if (!companyName) {
-    res.status(400).json({ error: "Company name is required" });
-  }
-  const companyQuery = await client.query(
-    'SELECT "Url", "ClassOfJobTitle" FROM companies WHERE "Name" = $1',
-    [companyName]
-  );
-  if (companyQuery.rowCount === 0) {
-    res.status(404).json({ error: "Company not found" });
-  }
-  else{
-    const companyUrl = companyQuery.rows[0].Url;
-    const companyClass = companyQuery.rows[0].ClassOfJobTitle;
-    try {
-      const posts = await scrap(companyUrl, companyClass);
-      if (!posts || posts.length === 0) {
-        res.status(404).json({ error: "No postings found for the given company" });
+postingsRouter.get(
+  "/test/:company",
+  verifyToken,
+  async (req: Request, res: Response) => {
+    const companyName = req.params.company;
+    if (!companyName) {
+      res.status(400).json({ error: "Company name is required" });
+    }
+    const companyQuery = await client.query(
+      'SELECT "Url", "ClassOfJobTitle" FROM companies WHERE "Name" = $1',
+      [companyName]
+    );
+    if (companyQuery.rowCount === 0) {
+      res.status(404).json({ error: "Company not found" });
+    } else {
+      const companyUrl = companyQuery.rows[0].Url;
+      const companyClass = companyQuery.rows[0].ClassOfJobTitle;
+      try {
+        const posts = await scrap(companyUrl, companyClass);
+        if (!posts || posts.length === 0) {
+          res
+            .status(404)
+            .json({ error: "No postings found for the given company" });
+        }
+        res.json({ postings: posts });
+      } catch (error) {
+        console.error("Error testing postings:", error);
+        res.status(500).json({ error: "Failed to test postings" });
       }
-      res.json({ postings: posts });
-    } catch (error) {
-      console.error("Error testing postings:", error);
-      res.status(500).json({ error: "Failed to test postings" });
     }
   }
-});
+);
 
 export { postingsRouter };
